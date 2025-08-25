@@ -142,7 +142,7 @@ export default function PeoplePage() {
           <Box component="form" onSubmit={(e)=>{e.preventDefault()}} sx={{ mt: 1 }}>
             <Stack gap={2}>
               <TextField label="Nome" {...form.register('nome')} error={!!form.formState.errors.nome} helperText={form.formState.errors.nome?.message} />
-              <TextField label="CPF" {...form.register('cpf')} error={!!form.formState.errors.cpf} helperText={form.formState.errors.cpf?.message} />
+              <TextField label="CPF (só números)" {...form.register('cpf')} error={!!form.formState.errors.cpf} helperText={form.formState.errors.cpf?.message} />
               <TextField label="Endereço" {...form.register('endereco')} />
             </Stack>
           </Box>
