@@ -1,25 +1,64 @@
+using FluentValidation;
+using MediatR;
+using SalesApp.Application;
+using Microsoft.OpenApi.Models;
+using SalesApp.Infrastructure;
+using SalesApp.Infrastructure.Seed;
+using Serilog;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Host.UseSerilog((ctx, lc) => lc
+  .ReadFrom.Configuration(ctx.Configuration)
+  .WriteTo.Console());
+
+var conn = builder.Configuration.GetConnectionString("Default");
+builder.Services.AddInfrastructure(conn);
+
+builder.Services.AddMediatR(cfg =>
+{
+  cfg.RegisterServicesFromAssemblies(
+    typeof(IAppDb).Assembly,
+    typeof(Program).Assembly
+  );
+}); builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+  c.SwaggerDoc("v1", new OpenApiInfo { Title = "SalesApp API", Version = "v1" });
+});
+builder.Services.AddCors(opt =>
+{
+  opt.AddDefaultPolicy(p => p
+    .AllowAnyOrigin()
+    .AllowAnyHeader()
+    .AllowAnyMethod());
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+  var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+  db.Database.Migrate();
+  DbInitializer.SeedAsync(db).GetAwaiter().GetResult();
 }
 
-app.UseHttpsRedirection();
+app.UseSerilogRequestLogging();
+app.UseCors();
 
-app.UseAuthorization();
+if (app.Environment.IsDevelopment())
+{
+  app.UseSwagger();
+  app.UseSwaggerUI();
+}
 
 app.MapControllers();
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok", ts = DateTime.UtcNow }))
+   .WithName("Health");
 
 app.Run();
